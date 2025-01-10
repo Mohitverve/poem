@@ -1,10 +1,12 @@
 from flask import Flask, jsonify, request, send_from_directory
+from flask_cors import CORS
 import threading
 import pygame
 import time
 import random
 
 app = Flask(__name__, static_folder=".", static_url_path="/")
+CORS(app)
 
 game_data = {
     "running": False,
@@ -130,23 +132,29 @@ def run_snake_game():
 
 @app.route("/start_game", methods=["POST"])
 def start_game():
-    if not game_data["running"]:
-        game_data["running"] = True
-        threading.Thread(target=run_snake_game).start()
-        return jsonify({"message": "Game started!"})
-    else:
-        return jsonify({"message": "Game is already running!"}), 400
+    try:
+        if not game_data["running"]:
+            game_data["running"] = True
+            threading.Thread(target=run_snake_game).start()
+            return jsonify({"message": "Game started!"})
+        else:
+            return jsonify({"message": "Game is already running!"}), 400
+    except Exception as e:
+        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
 
 @app.route("/get_result", methods=["GET"])
 def get_result():
-    if game_data["result"]:
-        return jsonify({"result": game_data["result"]})
-    else:
-        return jsonify({"message": "Game is still running."}), 400
+    try:
+        if game_data["result"]:
+            return jsonify({"result": game_data["result"]})
+        else:
+            return jsonify({"message": "Game is still running."}), 400
+    except Exception as e:
+        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
 
 @app.route("/", methods=["GET"])
 def serve_frontend():
-    return send_from_directory('.', 'index.html')
+    return send_from_directory('.', 'frontend_snake_game.html')
 
 if __name__ == "__main__":
     app.run(debug=True)
