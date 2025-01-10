@@ -154,7 +154,7 @@ def get_result():
 
 @app.route("/", methods=["GET"])
 def serve_frontend():
-    return send_from_directory('.', 'frontend_snake_game.html')
+    return send_from_directory('.', 'index.html')
 
 if __name__ == "__main__":
     app.run(debug=True)

@@ -57,13 +57,15 @@
     <div id="result">Result will appear here...</div>
 
     <script>
+        const backendUrl = 'https://poem-4b8m.onrender.com'; // Replace with your backend URL
+
         const startGameButton = document.getElementById('start-game');
         const fetchResultButton = document.getElementById('fetch-result');
         const resultDiv = document.getElementById('result');
 
         startGameButton.addEventListener('click', async () => {
             try {
-                const response = await fetch('/start_game', {
+                const response = await fetch(`${backendUrl}/start_game`, {
                     method: 'POST',
                 });
                 const data = await response.json();
@@ -75,7 +77,7 @@
 
         fetchResultButton.addEventListener('click', async () => {
             try {
-                const response = await fetch('/get_result');
+                const response = await fetch(`${backendUrl}/get_result`);
                 if (response.ok) {
                     const data = await response.json();
                     resultDiv.textContent = data.result;
