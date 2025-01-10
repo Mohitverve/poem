@@ -3,92 +3,134 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Romantic Snake Game</title>
+    <title>Snake Game - PyScript</title>
+    <script defer src="https://pyscript.net/alpha/pyscript.js"></script>
+    <link rel="stylesheet" href="https://pyscript.net/alpha/pyscript.css">
     <style>
         body {
             font-family: Arial, sans-serif;
+            text-align: center;
             background-color: #f0f8ff;
             margin: 0;
             padding: 0;
+        }
+
+        #game-container {
             display: flex;
-            flex-direction: column;
-            align-items: center;
             justify-content: center;
+            align-items: center;
             height: 100vh;
         }
 
-        #game-controls {
-            margin: 20px;
+        canvas {
+            border: 2px solid #000;
+            background-color: #fafafa;
         }
 
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            margin: 5px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        button#start-game {
-            background-color: #4caf50;
-            color: white;
-        }
-
-        button#fetch-result {
-            background-color: #2196f3;
-            color: white;
-        }
-
-        #result {
-            margin-top: 20px;
+        #score {
             font-size: 20px;
-            color: #333;
-            text-align: center;
+            margin: 10px;
         }
     </style>
 </head>
 <body>
-    <h1>Romantic Snake Game</h1>
-    <div id="game-controls">
-        <button id="start-game">Start Game</button>
-        <button id="fetch-result">Get Result</button>
+    <h1>Snake Game - PyScript</h1>
+    <div id="score">Score: 0</div>
+    <div id="game-container">
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
     </div>
-    <div id="result">Result will appear here...</div>
+    <py-script>
+        from js import document, window
 
-    <script>
-        const backendUrl = 'https://poem-4b8m.onrender.com'; // Replace with your backend URL
+        # Initialize variables
+        canvas = document.getElementById("gameCanvas")
+        ctx = canvas.getContext("2d")
+        score_element = document.getElementById("score")
 
-        const startGameButton = document.getElementById('start-game');
-        const fetchResultButton = document.getElementById('fetch-result');
-        const resultDiv = document.getElementById('result');
+        box = 20  # Grid size
+        snake = [{"x": 9 * box, "y": 10 * box}]  # Snake's initial position
+        direction = "RIGHT"  # Initial direction
+        food = {"x": 5 * box, "y": 5 * box}  # Food position
+        score = 0
 
-        startGameButton.addEventListener('click', async () => {
-            try {
-                const response = await fetch(`${backendUrl}/start_game`, {
-                    method: 'POST',
-                });
-                const data = await response.json();
-                resultDiv.textContent = data.message;
-            } catch (error) {
-                resultDiv.textContent = 'Error starting game: ' + error.message;
-            }
-        });
+        # Handle keyboard input
+        def change_direction(event):
+            global direction
+            key = event.key
+            if key == "ArrowLeft" and direction != "RIGHT":
+                direction = "LEFT"
+            elif key == "ArrowRight" and direction != "LEFT":
+                direction = "RIGHT"
+            elif key == "ArrowUp" and direction != "DOWN":
+                direction = "UP"
+            elif key == "ArrowDown" and direction != "UP":
+                direction = "DOWN"
 
-        fetchResultButton.addEventListener('click', async () => {
-            try {
-                const response = await fetch(`${backendUrl}/get_result`);
-                if (response.ok) {
-                    const data = await response.json();
-                    resultDiv.textContent = data.result;
-                } else {
-                    const errorData = await response.json();
-                    resultDiv.textContent = errorData.message;
-                }
-            } catch (error) {
-                resultDiv.textContent = 'Error fetching result: ' + error.message;
-            }
-        });
-    </script>
+        document.addEventListener("keydown", change_direction)
+
+        # Draw food
+        def draw_food():
+            ctx.fillStyle = "red"
+            ctx.fillRect(food["x"], food["y"], box, box)
+
+        # Draw snake
+        def draw_snake():
+            for segment in snake:
+                ctx.fillStyle = "green"
+                ctx.fillRect(segment["x"], segment["y"], box, box)
+                ctx.strokeStyle = "black"
+                ctx.strokeRect(segment["x"], segment["y"], box, box)
+
+        # Check collision
+        def check_collision(head, snake):
+            for segment in snake:
+                if head["x"] == segment["x"] and head["y"] == segment["y"]:
+                    return True
+            return False
+
+        # Main game loop
+        def game_loop():
+            global food, score
+
+            # Update snake position
+            head = {"x": snake[0]["x"], "y": snake[0]["y"]}
+            if direction == "LEFT":
+                head["x"] -= box
+            elif direction == "RIGHT":
+                head["x"] += box
+            elif direction == "UP":
+                head["y"] -= box
+            elif direction == "DOWN":
+                head["y"] += box
+
+            # Check if snake eats food
+            if head["x"] == food["x"] and head["y"] == food["y"]:
+                score += 1
+                score_element.innerHTML = f"Score: {score}"
+                food = {"x": window.Math.floor(window.Math.random() * 19) * box,
+                        "y": window.Math.floor(window.Math.random() * 19) * box}
+            else:
+                snake.pop()  # Remove the tail segment
+
+            # Check for collisions
+            if (head["x"] < 0 or head["x"] >= canvas.width or
+                    head["y"] < 0 or head["y"] >= canvas.height or
+                    check_collision(head, snake)):
+                window.alert("Game Over!")
+                window.location.reload()  # Reload the page to restart the game
+
+            # Add the new head to the snake
+            snake.insert(0, head)
+
+            # Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+            # Draw everything
+            draw_food()
+            draw_snake()
+
+        # Run the game loop every 100ms
+        window.setInterval(game_loop, 100)
+    </py-script>
 </body>
 </html>
