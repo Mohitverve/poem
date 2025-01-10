@@ -1,160 +1,180 @@
-from flask import Flask, jsonify, request, send_from_directory
-from flask_cors import CORS
-import threading
-import pygame
-import time
-import random
+from js import document, window
+from pyodide.ffi import create_proxy
 
-app = Flask(__name__, static_folder=".", static_url_path="/")
-CORS(app)
+# Canvas setup
+canvas = document.getElementById("gameCanvas")
+ctx = canvas.getContext("2d")
+print("Canvas initialized.")
 
-game_data = {
-    "running": False,
-    "result": None
-}
+# Game constants
+box = 20
+GROW_THRESHOLD = 10  # Show the modal when snake length >= 10
 
-def run_snake_game():
-    global game_data
+# Snake, direction, food, score
+snake = [{"x": 9 * box, "y": 10 * box}]
+direction = "RIGHT"
+food = {"x": 5 * box, "y": 5 * box}
+score = 0
 
-    # Initialize pygame
-    pygame.init()
-    width, height = 800, 600
-    screen = pygame.display.set_mode((width, height), pygame.DOUBLEBUF)
-    pygame.display.set_caption("Romantic Snake Game")
+# State variables for the proposal
+proposal_shown = False  # Show modal only once
+game_paused = False      # Pause the game when showing the modal
+user_responded = False   # When user clicks Yes/No
+user_said_yes = False    # True if user clicked Yes
 
-    # Set colors
-    white = (240, 240, 240)
-    green = (34, 177, 76)
-    red = (255, 100, 100)
-    pink = (255, 182, 193)
+def change_direction(event):
+    global direction
+    key = event.key
+    if key == "ArrowLeft" and direction != "RIGHT":
+        direction = "LEFT"
+    elif key == "ArrowRight" and direction != "LEFT":
+        direction = "RIGHT"
+    elif key == "ArrowUp" and direction != "DOWN":
+        direction = "UP"
+    elif key == "ArrowDown" and direction != "UP":
+        direction = "DOWN"
 
-    # Fonts
-    font_style = pygame.font.SysFont("bahnschrift", 30, bold=True)
+change_direction_proxy = create_proxy(change_direction)
+document.addEventListener("keydown", change_direction_proxy)
 
-    def message(msg, color, y_offset=0):
-        mesg = font_style.render(msg, True, color)
-        screen.blit(mesg, [width / 6, height / 3 + y_offset])
+def draw_snake():
+    for segment in snake:
+        ctx.fillStyle = "green"
+        ctx.fillRect(segment["x"], segment["y"], box, box)
+        ctx.strokeStyle = "black"
+        ctx.strokeRect(segment["x"], segment["y"], box, box)
 
-    # Game loop variables
-    clock = pygame.time.Clock()
-    snake_speed = 10
-    snake_block = 20
+def draw_food():
+    ctx.fillStyle = "red"
+    ctx.fillRect(food["x"], food["y"], box, box)
 
-    x1, y1 = width // 2, height // 2
-    x1_change, y1_change = 0, 0
+def show_game_over():
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.fillStyle = "black"
+    ctx.font = "30px Arial"
+    ctx.fillText("Game Over!", canvas.width // 4, canvas.height // 2)
 
-    snake_List = []
-    Length_of_snake = 1
+    # Show Restart Button
+    restart_button = document.getElementById("restart-button")
+    restart_button.style.display = "block"
+    restart_button.onclick = lambda event: window.location.reload()
 
-    foodx = round(random.randrange(0, width - snake_block) / 20.0) * 20.0
-    foody = round(random.randrange(0, height - snake_block) / 20.0) * 20.0
+# Functions for showing/hiding the proposal modal
+def show_proposal_modal():
+    global game_paused
+    game_paused = True  # Pause game logic
+    document.getElementById("proposal-modal").style.display = "flex"
 
-    game_running = True
-    while game_running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                game_running = False
-                game_data["running"] = False
+def hide_proposal_modal():
+    document.getElementById("proposal-modal").style.display = "none"
 
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_LEFT and x1_change != snake_block:
-                    x1_change = -snake_block
-                    y1_change = 0
-                elif event.key == pygame.K_RIGHT and x1_change != -snake_block:
-                    x1_change = snake_block
-                    y1_change = 0
-                elif event.key == pygame.K_UP and y1_change != snake_block:
-                    y1_change = -snake_block
-                    x1_change = 0
-                elif event.key == pygame.K_DOWN and y1_change != -snake_block:
-                    y1_change = snake_block
-                    x1_change = 0
+def handle_yes_click(event):
+    global user_said_yes, user_responded
+    user_said_yes = True
+    user_responded = True
+    hide_proposal_modal()
 
-        x1 += x1_change
-        y1 += y1_change
+def handle_no_click(event):
+    global user_said_yes, user_responded
+    user_said_yes = False
+    user_responded = True
+    hide_proposal_modal()
 
-        if x1 >= width or x1 < 0 or y1 >= height or y1 < 0:
-            game_running = False
-            game_data["result"] = "Game Over!"
-            break
+# Link the modal buttons to Python functions
+yes_button = document.getElementById("yes-button")
+no_button = document.getElementById("no-button")
+yes_button.onclick = create_proxy(handle_yes_click)
+no_button.onclick = create_proxy(handle_no_click)
 
-        screen.fill(white)
+def game_loop():
+    global food, score, proposal_shown, game_paused, user_responded, user_said_yes
 
-        # Draw food
-        pygame.draw.rect(screen, red, [foodx, foody, snake_block, snake_block])
+    # If game is paused (proposal modal is up), wait for user response
+    if game_paused:
+        # Clear the canvas so we can show final message if user responded
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-        # Draw snake
-        snake_Head = []
-        snake_Head.append(x1)
-        snake_Head.append(y1)
-        snake_List.append(snake_Head)
-        if len(snake_List) > Length_of_snake:
-            del snake_List[0]
+        if user_responded:
+            # The user clicked Yes or No -> show final message
+            ctx.fillStyle = "black"
+            ctx.font = "20px Arial"
 
-        for block in snake_List[:-1]:
-            if block == snake_Head:
-                game_running = False
-                game_data["result"] = "Game Over!"
-                break
+            if user_said_yes:
+                # Print the "My game over..." message on canvas
+                text = "My game over. Our game starts. Come let's celebrate!"
+            else:
+                # Print the "My next proposal..." message on canvas
+                text = ("My next proposal will be with real python. Be ready "
+                        "to accept it..else???\n\nYou keep a straight serious "
+                        "face and fall to your knees. Propose to her with a ring.")
 
-        for segment in snake_List:
-            pygame.draw.rect(screen, green, [segment[0], segment[1], snake_block, snake_block])
+            # Because fillText can’t do multiline easily, do a naive approach:
+            lines = text.split("\n")
+            x = 10
+            y = 200
+            for line in lines:
+                ctx.fillText(line, x, y)
+                y += 30
 
-        pygame.display.update()
+            # We’ll remain paused forever to let them read.
+        # Don’t run the normal update logic if paused
+        return
 
-        # Check food collision
-        if abs(x1 - foodx) < 20 and abs(y1 - foody) < 20:
-            foodx = round(random.randrange(0, width - snake_block) / 20.0) * 20.0
-            foody = round(random.randrange(0, height - snake_block) / 20.0) * 20.0
-            Length_of_snake += 1
+    # If there's no snake left (i.e., game over already), stop
+    if len(snake) == 0:
+        return
 
-        if Length_of_snake == 11:
-            screen.fill(pink)
-            message("Do you love me?", green, -30)
-            pygame.display.update()
+    # Update snake head position
+    head = {"x": snake[0]["x"], "y": snake[0]["y"]}
 
-            waiting_for_answer = True
-            while waiting_for_answer:
-                for event in pygame.event.get():
-                    if event.type == pygame.KEYDOWN:
-                        if event.key == pygame.K_y:
-                            game_data["result"] = "Yes: Let's Celebrate!"
-                            waiting_for_answer = False
-                            game_running = False
-                        elif event.key == pygame.K_n:
-                            game_data["result"] = "No: Proposal with real python incoming."
-                            waiting_for_answer = False
-                            game_running = False
+    if direction == "LEFT":
+        head["x"] -= box
+    elif direction == "RIGHT":
+        head["x"] += box
+    elif direction == "UP":
+        head["y"] -= box
+    elif direction == "DOWN":
+        head["y"] += box
 
-        clock.tick(snake_speed)
+    # Check collision with food
+    if head["x"] == food["x"] and head["y"] == food["y"]:
+        score += 1
+        food = {
+            "x": window.Math.floor(window.Math.random() * 19) * box,
+            "y": window.Math.floor(window.Math.random() * 19) * box,
+        }
+        # Snake grows, so no pop
+    else:
+        snake.pop()
 
-    pygame.quit()
+    # Check collision with walls or self
+    if (
+        head["x"] < 0
+        or head["x"] >= canvas.width
+        or head["y"] < 0
+        or head["y"] >= canvas.height
+        or any(seg["x"] == head["x"] and seg["y"] == head["y"] for seg in snake)
+    ):
+        show_game_over()
+        snake.clear()
+        return
 
-@app.route("/start_game", methods=["POST"])
-def start_game():
-    try:
-        if not game_data["running"]:
-            game_data["running"] = True
-            threading.Thread(target=run_snake_game).start()
-            return jsonify({"message": "Game started!"})
-        else:
-            return jsonify({"message": "Game is already running!"}), 400
-    except Exception as e:
-        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+    # Add new head
+    snake.insert(0, head)
 
-@app.route("/get_result", methods=["GET"])
-def get_result():
-    try:
-        if game_data["result"]:
-            return jsonify({"result": game_data["result"]})
-        else:
-            return jsonify({"message": "Game is still running."}), 400
-    except Exception as e:
-        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+    # ############### PROPOSAL CHECK ###############
+    if not proposal_shown and len(snake) >= GROW_THRESHOLD:
+        proposal_shown = True
+        show_proposal_modal()  # This will pause the game
 
-@app.route("/", methods=["GET"])
-def serve_frontend():
-    return send_from_directory('.', 'index.html')
+    # Clear canvas and draw everything
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    draw_food()
+    draw_snake()
 
-if __name__ == "__main__":
-    app.run(debug=True)
+    # Update score display
+    document.getElementById("score").innerHTML = f"Score: {score}"
+
+# Wrap game_loop() and run it every 150 ms (slowed down from 100 ms)
+game_loop_proxy = create_proxy(game_loop)
+window.setInterval(game_loop_proxy, 150)

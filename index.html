@@ -1,136 +1,74 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Snake Game - PyScript</title>
-    <script defer src="https://pyscript.net/alpha/pyscript.js"></script>
-    <link rel="stylesheet" href="https://pyscript.net/alpha/pyscript.css">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            background-color: #f0f8ff;
-            margin: 0;
-            padding: 0;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Snake Game - PyScript</title>
+  <link rel="stylesheet" href="https://pyscript.net/releases/2024.11.1/core.css"/>
+  <script type="module" src="https://pyscript.net/releases/2024.11.1/core.js"></script>
 
-        #game-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
-
-        canvas {
-            border: 2px solid #000;
-            background-color: #fafafa;
-        }
-
-        #score {
-            font-size: 20px;
-            margin: 10px;
-        }
-    </style>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f8ff;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    canvas {
+      border: 2px solid #000;
+      background-color: #fafafa;
+    }
+    #score {
+      font-size: 20px;
+      margin: 10px;
+    }
+    /* -- Modal styling -- */
+    #proposal-modal {
+      display: none; /* hidden by default */
+      position: fixed;
+      z-index: 9999; /* above everything */
+      left: 0; top: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(0,0,0,0.5); /* semi-transparent black */
+      justify-content: center; align-items: center;
+    }
+    #proposal-content {
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    #proposal-content button {
+      margin: 10px;
+      padding: 10px;
+      cursor: pointer;
+    }
+  </style>
 </head>
+
 <body>
-    <h1>Snake Game - PyScript</h1>
-    <div id="score">Score: 0</div>
-    <div id="game-container">
-        <canvas id="gameCanvas" width="400" height="400"></canvas>
+  <h1>Snake Game - PyScript</h1>
+  <div id="score">Score: 0</div>
+  <div>
+    <canvas id="gameCanvas" width="600" height="600"></canvas>
+    <button id="restart-button" style="display: none;">Restart Game</button>
+  </div>
+
+  <!-- ############ The modal ############ -->
+  <div id="proposal-modal">
+    <div id="proposal-content">
+      <h2>Do you love me?</h2>
+      <button id="yes-button">Yes</button>
+      <button id="no-button">No</button>
     </div>
-    <py-script>
-        from js import document, window
+  </div>
 
-        # Initialize variables
-        canvas = document.getElementById("gameCanvas")
-        ctx = canvas.getContext("2d")
-        score_element = document.getElementById("score")
-
-        box = 20  # Grid size
-        snake = [{"x": 9 * box, "y": 10 * box}]  # Snake's initial position
-        direction = "RIGHT"  # Initial direction
-        food = {"x": 5 * box, "y": 5 * box}  # Food position
-        score = 0
-
-        # Handle keyboard input
-        def change_direction(event):
-            global direction
-            key = event.key
-            if key == "ArrowLeft" and direction != "RIGHT":
-                direction = "LEFT"
-            elif key == "ArrowRight" and direction != "LEFT":
-                direction = "RIGHT"
-            elif key == "ArrowUp" and direction != "DOWN":
-                direction = "UP"
-            elif key == "ArrowDown" and direction != "UP":
-                direction = "DOWN"
-
-        document.addEventListener("keydown", change_direction)
-
-        # Draw food
-        def draw_food():
-            ctx.fillStyle = "red"
-            ctx.fillRect(food["x"], food["y"], box, box)
-
-        # Draw snake
-        def draw_snake():
-            for segment in snake:
-                ctx.fillStyle = "green"
-                ctx.fillRect(segment["x"], segment["y"], box, box)
-                ctx.strokeStyle = "black"
-                ctx.strokeRect(segment["x"], segment["y"], box, box)
-
-        # Check collision
-        def check_collision(head, snake):
-            for segment in snake:
-                if head["x"] == segment["x"] and head["y"] == segment["y"]:
-                    return True
-            return False
-
-        # Main game loop
-        def game_loop():
-            global food, score
-
-            # Update snake position
-            head = {"x": snake[0]["x"], "y": snake[0]["y"]}
-            if direction == "LEFT":
-                head["x"] -= box
-            elif direction == "RIGHT":
-                head["x"] += box
-            elif direction == "UP":
-                head["y"] -= box
-            elif direction == "DOWN":
-                head["y"] += box
-
-            # Check if snake eats food
-            if head["x"] == food["x"] and head["y"] == food["y"]:
-                score += 1
-                score_element.innerHTML = f"Score: {score}"
-                food = {"x": window.Math.floor(window.Math.random() * 19) * box,
-                        "y": window.Math.floor(window.Math.random() * 19) * box}
-            else:
-                snake.pop()  # Remove the tail segment
-
-            # Check for collisions
-            if (head["x"] < 0 or head["x"] >= canvas.width or
-                    head["y"] < 0 or head["y"] >= canvas.height or
-                    check_collision(head, snake)):
-                window.alert("Game Over!")
-                window.location.reload()  # Reload the page to restart the game
-
-            # Add the new head to the snake
-            snake.insert(0, head)
-
-            # Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-            # Draw everything
-            draw_food()
-            draw_snake()
-
-        # Run the game loop every 100ms
-        window.setInterval(game_loop, 100)
-    </py-script>
+  <!-- ############ The game script ############ -->
+  <py-script src="app.py"></py-script>
 </body>
 </html>
